@@ -1,0 +1,78 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+
+ENTITY dec_3_8 IS
+	PORT ( clk: IN std_logic;
+		reset: IN std_logic;
+		
+		sinc: OUT std_logic;
+		inh: OUT std_logic
+);
+END dec_3_8;
+
+ARCHITECTURE Behavioral OF dec_3_8 IS
+	SIGNAL sinc_aux: std_logic;
+	SIGNAL inh_aux: std_logic;
+	SIGNAL count: std_logic_vector(9 DOWNTO 0);
+
+BEGIN
+PROCESS(clk,reset)
+	IF (reset='1') THEN
+		count<=(others=>'0');
+	ELSIF (clk'EVENT AND clk='1') THEN
+		
+		IF(count=793) THEN
+			count<=(others=>'0');
+		ELSE	
+			count<=count+1;
+		END IF;
+	END IF;			
+END PROCESS;
+PROCESS(clk,reset)
+	IF (reset='1') THEN
+		sinc<='0';
+		inh<='0';
+	ELSIF (clk'EVENT AND clk='1') THEN
+		sinc<=sinc_aux;
+		inh<=inh_aux;
+	END IF;			
+END PROCESS;
+
+PROCESS(count)--para inh
+	IF (count<640) THEN
+		inh_aux<='1';
+	ELSE 
+		inh_aux<='0';
+
+	END IF;			
+END PROCESS;
+
+PROCESS(count)--para inh
+	IF (count<650) THEN
+		sinc_aux<='1';
+	ELSIF(count>650 AND count<747)
+		sinc_aux<='0';
+	ELSE
+		sinc_aux<='1';
+
+	END IF;			
+END PROCESS;
+
+
+
+END Behavioral;
+----------------------------TB------------------------------------
+-- a 25 MHz el periodo dura 40 ns;
+constant clk_period:time:=50ns;
+stim_proc:process
+begin
+reset<='1';
+A<="01110001";
+B<="10001100";
+wait for clk_period;
+OP<="0001";
+wait for 500 ns;
+OP<="0010";
+wait for 200 ns;
+OP<="0011";
+ etc probar con todos

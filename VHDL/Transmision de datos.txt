@@ -1,0 +1,4 @@
+wait 1 ms
+"a"
+wait 2 ms
+"b"

@@ -1,0 +1,185 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+ENTITY practica4 IS
+	PORT(inbus : IN std_logic_vector(3 DOWNTO 0);
+		A : IN std_logic;
+		B: IN std_logic;
+		clk : IN std_logic;
+		a_reset: IN std_logic;
+		DEC: OUT std_logic_vector(6 DOWNTO 0);
+		SEG: OUT std_logic_vector(6 DOWNTO 0);
+		alarma: OUT std_logic);
+END practica4;
+ARCHITECTURE Behavioral OF practica3 IS --1KHz=1msxciclo
+	TYPE mis_estados is (inicio,desconteo,pitido,reposo);
+	SIGNAL estado_actual,estado_siguiente: mis_estados;
+	SIGNAL operador: unsigned(2 DOWNTO 0);
+	SIGNAL ciclos:unsigned(6 DOWNTO 0);
+	SIGNAL enable_ciclos,reset_ciclos,enable_alarma,enable_display,enable_inbus:std_logic;
+	SIGNAL DEC_aux,SEG_aux: unsigned(3 DOWNTO 0);
+	SIGNAL contador_alarma:unsigned (8 DOWNTO 0);
+	BEGIN
+	
+	PROCESS(a_reset,clk)
+		BEGIN
+		IF(a_reset='1') THEN
+			ciclos<="1100011; --ponemos ciclos al maximo,99
+		ELSIF(clk'EVENT AND clk='1')
+			IF(reset_ciclos='1' OR ciclos='0') THEN
+				ciclos<="1100011";
+			ELSIF (enable_ciclos='1') THEN
+				ciclos<= ciclos - 1;
+			END IF;
+		END IF;
+	END PROCESS;
+
+	PROCESS(a_reset,ciclos)
+		BEGIN
+		IF(a_reset='1') THEN
+			DEC_aux<="1001"; --ponemos DEC al maximo,9
+		ELSIF(ciclos'EVENT AND ciclos='0')
+			IF(reset_ciclos='1' OR DEC_aux='0') THEN
+				DEC_aux<="1001";
+			ELSIF (enable_ciclos='1') THEN
+				DEC_aux<= DEC_aux - 1;
+			END IF;
+		END IF;
+	END PROCESS;
+	
+	PROCESS(a_reset,ciclos)
+		BEGIN
+		IF(a_reset='1') THEN
+			SEG_aux<="1001"; --ponemos SEG al maximo,9
+		ELSIF(DEC_aux'EVENT AND DEC_aux='0')
+			IF (A='1' AND enable_inbus='1') THEN --no queremos que el valor de desconteo cambia indebidamente en mitad del proceso, 
+				SEG_aux<=unsigned(inbus) - 1; -- al introducir en inbus el valor 10, lo que queremos que muestre es 9,9 no 10,9;
+			ELSIF (reset_ciclos='1') THEN
+				SEG_aux<=unsigned(inbus) - 1;
+			ELSIF(enable_ciclos = '1') THEN
+				SEG_aux<=SEG_aux - 1;
+			END IF;
+		END IF;
+	END PROCESS;
+	
+	proceso_estado_actual:PROCESS(reset,clk)
+		BEGIN
+		IF(reset='1') THEN
+			estado_actual<=reposo;
+		ELSIF(clk='1' AND clk'EVENT) THEN
+			estado_actual<=estado_siguiente;
+		END IF;
+	END PROCESS;
+	
+	proceso_estado_siguiente:PROCESS(estado_actual,A,B,inbus,SEG_aux)
+		BEGIN
+		CASE estado_actual IS
+			WHEN reposo	=>	IF(A='1' AND (inbus<10 OR inbus=10)) THEN
+								estado_siguiente<=inicio;
+							ELSE
+								estado_siguiente<=reposo;
+							END IF;
+			WHEN inicio => IF (B='1')THEN
+								estado_siguiente<=desconteo;
+							ELSE
+								estado_siguiente<=inicio;
+							END IF;
+			WHEN desconteo=>	IF (SEG_aux="0000") THEN
+								estado_siguiente<=pitido
+							ELSE 
+								estado_siguiente<=desconteo;
+							END IF;
+			WHEN pitido =>	IF (contador_alarma=500)THEN
+								estado_siguiente<=reposo;
+							ELSE
+								estado_siguiente<=pitido;
+							END IF;
+			END CASE;
+	END PROCESS;
+	
+	proceso_salida:PROCESS(estado_actual)
+		BEGIN
+			CASE estado_actual is
+				WHEN reposo=> 	enable_ciclos<='0';
+								enable_alarma<='0';
+								enable_display<='0';
+								enable_inbus<='1';
+				WHEN inicio=> 	enable_ciclos<='0';
+								enable_alarma<='0';
+								enable_display<='1';
+								enable_inbus<='0';
+				WHEN desconteo=> enable_ciclos<='1';
+								enable_alarma<='0';
+								enable_display<='1';
+								enable_inbus<='0';
+				WHEN pitido=> 	enable_ciclos<='0';
+								enable_alarma<='1';
+								enable_display<='1';
+								enable_inbus<='0';
+			END CASE;
+	END PROCESS;
+	PROCESS(a_reset,clk)
+		BEGIN
+			IF (a_reset='1') THEN
+				SEG_aux<=(others=>'0');
+				DEC_aux<=(others=>'0');
+			ELSIF (clk'EVENT and clk='1') THEN
+				IF(enable_display='1') THEN
+					CASE SEG_aux is
+						WHEN "0000"=>SEG<="1111110";--0 en SEC
+						WHEN "0001"=>SEG<="0110000";--1 en SEG
+						WHEN "0010"=>SEG<="1101101";--2 en SEG
+						WHEN "0011"=>SEG<="1111001";--3 en SEG
+						WHEN "0100"=>SEG<="0110011";--4 en SEG
+						WHEN "0101"=>SEG<="1011011";
+						WHEN "0110"=>SEG<="1011111";--6 en SEG
+						WHEN "0111"=>SEG<="1110000";
+						WHEN "1000"=>SEG<="1111111";--8 en SEG
+						WHEN "1001"=>SEG<="1110011";--9 en SEG
+						WHEN others=>SEG<="0000000";
+					END CASE;
+					CASE DEC_aux is
+						WHEN "0000"=>DEC<="1111110";
+						WHEN "0001"=>DEC<="0110000";
+						WHEN "0010"=>DEC<="1101101";
+						WHEN "0011"=>DEC<="1111001";
+						WHEN "0100"=>DEC<="0110011";
+						WHEN "0101"=>DEC<="1011011";
+						WHEN "0110"=>DEC<="1011111";
+						WHEN "0111"=>DEC<="1110000";
+						WHEN "1000"=>DEC<="1111111";
+						WHEN "1001"=>DEC<="1110011";--9 en DEC
+						WHEN others=>DEC<="0000000";
+					END CASE;
+				END IF;
+			END IF;
+		END PROCESS;
+	PROCESS(clk,reset)
+		BEGIN
+			IF(reset='1' OR contador_alarma=500) THEN
+				contador_alarma<=(others=>'0');
+			ELSIF(clk'EVENT AND clk='1' AND enable_alarma='1') THEN
+				contador_alarma<=contador_alarma+1;
+				END IF;
+	END PROCESS;
+PROCESS(clk,reset)
+		BEGIN
+			IF(reset='1' OR contador_alarma=500) THEN
+				alarma<='0';
+			ELSIF(clk'EVENT AND clk='1') THEN
+				IF(enable_alarma='1') THEN
+					IF(contador_alarma<100) THEN
+						alarma<='1';
+					ELSIF(contador_alarma>100 AND contador_alarma<150) THEN
+						alarma<='0';
+					ELSIF(contador_alarma>150 AND contador_alarma<250) THEN
+						alarma<='1';
+					ELSIF(contador_alarma>250 AND contador_alarma<300) THEN
+						alarma<='0';
+					ELSE -----alarma vale entre 300 y 500
+						alarma<='1';
+				ELSE
+				alarma<='0'
+				END CASE;
+	END PROCESS;
+END Behavioral;

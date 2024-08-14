@@ -1,0 +1,70 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+
+ENTITY dec_3_8 IS
+	PORT ( clk: IN std_logic;
+		reset: IN std_logic;
+		A: IN std_logic_vector(7 DOWNTO 0);
+		OP: IN std_logic_vector(3 DOWNTO 0);
+		B: IN std_logic_vector(7 DOWNTO 0);
+		A_out: OUT std_logic_vector(7 DOWNTO 0);
+		B_out: OUT std_logic_vector(7 DOWNTO 0);
+		SALIDA: OUT std_logic_vector(7 DOWNTO 0);
+		Z: OUT std_logic
+);
+END dec_3_8;
+
+ARCHITECTURE Behavioral OF dec_3_8 IS
+	SIGNAL regA: std_logic_vector(7 DOWNTO 0);
+	SIGNAL regB: std_logic_vector(7 DOWNTO 0);
+	SIGNAL SALIDA_aux: std_logic_vector(7 DOWNTO 0);
+BEGIN
+PROCESS(clk,reset)
+	IF (reset='1') THEN
+		regA <=(others=> '0');
+		regB <=(others=> '0');
+	ELSIF (clk'EVENT AND clk='1') THEN
+		regA <=A;
+		regB <=B;
+		CASE OP IS
+			WHEN "0001" => SALIDA_aux <= A OR B;
+			WHEN "0010" => SALIDA_aux <= NOT A;
+			WHEN "0011" => SALIDA_aux <= NOT B;
+			WHEN "0100" => SALIDA_aux <= A AND B;
+			WHEN "0101" => SALIDA_aux <= A NAND B;
+			WHEN "0110" => SALIDA_aux <= A XOR B;
+			WHEN "0111" => SALIDA_aux <= regA(6 DOWNTO 0) & regA(7);--RL A
+			WHEN "1000" => SALIDA_aux <= regB(6 DOWNTO 0) & regB(7);--RL B
+			WHEN "1001"=> SALIDA_aux <= regA(7) & regA(7 DOWNTO 1); --RR A
+			WHEN "1010"=> SALIDA_aux <= regB(7) & regB(7 DOWNTO 1); --RR B
+			WHEN others=> SALIDA_aux<= "11111111";
+		END CASE;
+	END IF;	
+END PROCESS;
+A_out<=regA;
+B_out<=regB;
+SALIDA<=SALIDA_aux;
+PROCESS(reset,clk,SALIDA_aux)
+	IF (reset='1') THEN
+		Z<='0';
+	ELSIF (clk'EVENT AND clk='1') THEN
+		IF (SALIDA_aux="00000000") THEN
+			Z<='1';
+		ELSE
+			Z<='0';
+	END PROCESS;
+END Behavioral;
+----------------------------TB------------------------------------
+constant clk_period:time:=50ns;
+stim_proc:process
+begin
+reset<='1';
+A<="01110001";
+B<="10001100";
+wait for clk_period;
+OP<="0001";
+wait for 500 ns;
+OP<="0010";
+wait for 200 ns;
+OP<="0011";
+ etc probar con todos

@@ -1,0 +1,110 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+ENTITY practica3 IS
+	PORT(clk : IN std_logic;
+		pulsador : IN std_logic;
+		reset: IN std_logic;
+		luz_verde: OUT std_logic;
+		luz_amarilla: OUT std_logic;
+		luz_roja: OUT std_logic);
+END practica3;
+ARCHITECTURE Behavioral OF practica3 IS --10KHz= 0,1ms cada ciclo
+	TYPE mis_estados is (verde1,verde2,amarillo,rojo);
+	SIGNAL estado_actual,estado_siguiente: mis_estados;
+	SIGNAL estado_contador: unsigned(2 DOWNTO 0);
+	SIGNAL contador_verde1,contador_verde2,contador_amarillo,contador_rojo: unsigned(13 DOWNTO 0)
+	BEGIN
+	
+	
+	proceso_estado_actual:PROCESS(reset,clk)
+		BEGIN
+		IF(reset='1') THEN
+			estado_actual<=verde1;
+		ELSIF(clk='1' AND clk'EVENT) THEN
+			estado_actual<=estado_siguiente;
+		END IF;
+	END PROCESS;
+	
+	proceso_estado_siguiente:PROCESS(estado_actual,pulsador,contador_verde1,contador_verde2,contador_amarillo,contador_rojo)
+		BEGIN
+		CASE estado_actual IS
+			WHEN verde1	=>	IF(pulsador='1' AND contador_verde1<80000) THEN
+								estado_siguiente<=verde2;
+							ELSIF(contador_verde1=100000) THEN
+								estado_siguiente<=amarillo;
+							ELSE
+								estado_siguiente<=verde1;
+							END IF;
+			WHEN verde2 => IF (contador_verde2=20000)THEN
+								estado_siguiente<=amarillo;
+							ELSE
+								estado_siguiente<=verde2;
+							END IF;
+			WHEN amarillo=>	IF (contador_amarillo=30000) THEN
+								estado_siguiente<=rojo
+							ELSE 
+								estado_siguiente<=amarillo;
+							END IF;
+			WHEN rojo =>	IF (contador_rojo=60000)THEN
+								estado_siguiente<=verde1;
+							ELSE
+								estado_siguiente<=rojo;
+							END IF;
+			END CASE;
+	END PROCESS;
+	
+	proceso_salida:PROCESS(estado_actual)
+		BEGIN
+			CASE estado_actual is
+				WHEN verde1=> 	estado_contador<="001";
+								luz_verde<='1';
+								luz_amarilla<='0';
+								luz_roja<='0';
+				WHEN verde2=> 	estado_contador<="010";
+								luz_verde<='1';
+								luz_amarilla<='0';
+								luz_roja<='0';
+				WHEN amarillo=> 	estado_contador<="011";
+								luz_verde<='0';
+								luz_amarilla<='1';
+								luz_roja<='0';
+				WHEN rojo=> 	estado_contador<="100";
+								luz_verde<='0';
+								luz_amarilla<='0';
+								luz_roja<='1';
+			END CASE;
+	END PROCESS;
+	
+	PROCESS(clk,reset)
+		BEGIN
+			IF(reset='1') THEN
+				contador_verde1<=(others=>0);
+				contador_verde2<=(others=>0);
+				contador_amarillo<=(others=>0);
+				contador_rojo<=(others=>0);
+			ELSIF (clk'EVENT AND clk='1') THEN
+				CASE estado_contador IS
+					WHEN "001"=>IF(contador_verde1=80000)THEN
+									contador_verde1<=(others=>0);
+								ELSE
+									contador_verde1<= contador_verde2+1;
+								END IF;
+					WHEN "010"=>IF(contador_verde2=20000)THEN
+									contador_verde2<=(others=>0);
+								ELSE
+									contador_verde2<= contador_verde1+1;
+								END IF;
+					WHEN "011"=>IF(contador_amarillo=30000)THEN
+									contador_amarillo<=(others=>0);
+								ELSE
+									contador_amarillo<= contador_amarillo+1;
+								END IF;
+					WHEN "100"=>IF(contador_rojo=60000)THEN
+									contador_rojo<=(others=>0);
+								ELSE
+									contador_rojo<= contador_rojo+1;
+								END IF;
+				END CASE;
+	END PROCESS;
+END Behavioral;
